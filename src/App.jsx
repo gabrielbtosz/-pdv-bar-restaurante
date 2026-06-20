@@ -1,11 +1,4 @@
-// ============================================================
 // PDV BAR & RESTAURANTE - Sistema Completo
-// ============================================================
-// Módulos: Frente de Caixa, Cardápio, Estoque, Caixa, Relatórios
-// Tecnologia: React + Tailwind CSS v4 + Lucide React
-// Persistência: localStorage
-// ============================================================
-
 import { useState, useReducer, useContext, createContext, useEffect, useCallback, useRef } from 'react';
 import {
   ShoppingCart, Search, Plus, Minus, Trash2, DollarSign, CreditCard,
@@ -16,10 +9,6 @@ import {
   Printer, Filter, Calendar, Star, Users, Receipt, CircleDollarSign,
   ArrowDownCircle, ArrowUpCircle, Info, Tag, Layers
 } from 'lucide-react';
-
-// ============================================================
-// DADOS INICIAIS (MOCK DATA) - Bar Brasileiro
-// ============================================================
 
 const gerarId = () => Math.random().toString(36).substring(2, 9);
 
@@ -49,24 +38,11 @@ const PRODUTOS_INICIAIS = [
   { id: 'p14', nome: 'Sorvete', emoji: '🍨', preco: 10.00, categoriaId: 'cat6', ativo: true, estoque: 3, estoqueMinimo: 8, ordem: 1 },
 ];
 
-const agora = new Date();
-const hoje = agora.toISOString().slice(0, 10);
-const ontem = new Date(agora - 86400000).toISOString().slice(0, 10);
-const anteontem = new Date(agora - 2 * 86400000).toISOString().slice(0, 10);
-const tresAtras = new Date(agora - 3 * 86400000).toISOString().slice(0, 10);
-const quatroAtras = new Date(agora - 4 * 86400000).toISOString().slice(0, 10);
-
 const VENDAS_INICIAIS = [];
 const MOVIMENTACOES_INICIAIS = [];
 const TURNOS_INICIAIS = [];
 
-// ============================================================
-// FUNÇÕES UTILITÁRIAS
-// ============================================================
-
-const formatarMoeda = (valor) => {
-  return `R$ ${valor.toFixed(2).replace('.', ',')}`;
-};
+const formatarMoeda = (valor) => `R$ ${valor.toFixed(2).replace('.', ',')}`;
 
 const formatarData = (dataStr) => {
   if (!dataStr) return '';
@@ -82,14 +58,11 @@ const formatarDataHora = (dataStr) => {
 
 const getHojeStr = () => new Date().toISOString().slice(0, 10);
 
-// ============================================================
-// CONTEXTO GLOBAL E REDUCER
-// ============================================================
-
 const AppContext = createContext();
 
 const MESAS_INICIAIS = Array.from({ length: 20 }, (_, i) => ({
   numero: i + 1,
+  nome: null, // null = usa nome padrão "Mesa XX"
   status: 'Livre',
   carrinho: [],
   descontoPercent: 0
@@ -113,31 +86,25 @@ function carregarEstado() {
     const salvo = localStorage.getItem('pdv_estado');
     if (salvo) {
       const parsed = JSON.parse(salvo);
-      // Limpar dados mock do localStorage se existirem para garantir início limpo
       if (parsed.vendas) {
-        parsed.vendas = parsed.vendas.filter(v => !['v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8'].includes(v.id));
+        parsed.vendas = parsed.vendas.filter(v => !['v1','v2','v3','v4','v5','v6','v7','v8'].includes(v.id));
       }
       if (parsed.turnos) {
-        parsed.turnos = parsed.turnos.filter(t => !['t1', 't2'].includes(t.id));
+        parsed.turnos = parsed.turnos.filter(t => !['t1','t2'].includes(t.id));
       }
       if (parsed.movimentacoes) {
-        parsed.movimentacoes = parsed.movimentacoes.filter(m => !['m1', 'm2', 'm3'].includes(m.id));
+        parsed.movimentacoes = parsed.movimentacoes.filter(m => !['m1','m2','m3'].includes(m.id));
       }
-      if (!parsed.mesas || parsed.mesas.length === 0) {
-        parsed.mesas = MESAS_INICIAIS;
-      }
-      if (parsed.mesaSelecionada === undefined) {
-        parsed.mesaSelecionada = null;
-      }
+      if (!parsed.mesas || parsed.mesas.length === 0) parsed.mesas = MESAS_INICIAIS;
+      if (parsed.mesaSelecionada === undefined) parsed.mesaSelecionada = null;
       return { ...estadoInicial, ...parsed };
     }
-  } catch (e) { /* ignorar */ }
+  } catch (e) {}
   return estadoInicial;
 }
 
 function reducer(state, action) {
   switch (action.type) {
-    // ---- CARRINHO ----
     case 'ADICIONAR_AO_CARRINHO': {
       const produto = action.payload;
       const existente = state.carrinho.find(i => i.produtoId === produto.id);
@@ -151,15 +118,9 @@ function reducer(state, action) {
         novoCarrinho = [...state.carrinho, { produtoId: produto.id, nome: produto.nome, emoji: produto.emoji, preco: produto.preco, qtd: 1, categoriaId: produto.categoriaId }];
       }
       const novasMesas = state.mesas.map(m => m.numero === state.mesaSelecionada ? {
-        ...m,
-        carrinho: novoCarrinho,
-        status: m.status === 'Livre' ? 'Ocupada' : m.status
+        ...m, carrinho: novoCarrinho, status: m.status === 'Livre' ? 'Ocupada' : m.status
       } : m);
-      return {
-        ...state,
-        carrinho: novoCarrinho,
-        mesas: novasMesas
-      };
+      return { ...state, carrinho: novoCarrinho, mesas: novasMesas };
     }
     case 'ALTERAR_QTD_CARRINHO': {
       const { produtoId, delta } = action.payload;
@@ -175,85 +136,48 @@ function reducer(state, action) {
         novoCarrinho = state.carrinho.map(i => i.produtoId === produtoId ? { ...i, qtd: novaQtd } : i);
       }
       const novasMesas = state.mesas.map(m => m.numero === state.mesaSelecionada ? {
-        ...m,
-        carrinho: novoCarrinho,
-        status: novoCarrinho.length === 0 ? 'Livre' : m.status
+        ...m, carrinho: novoCarrinho, status: novoCarrinho.length === 0 ? 'Livre' : m.status
       } : m);
-      return {
-        ...state,
-        carrinho: novoCarrinho,
-        mesas: novasMesas
-      };
+      return { ...state, carrinho: novoCarrinho, mesas: novasMesas };
     }
     case 'REMOVER_DO_CARRINHO': {
       const novoCarrinho = state.carrinho.filter(i => i.produtoId !== action.payload);
       const novasMesas = state.mesas.map(m => m.numero === state.mesaSelecionada ? {
-        ...m,
-        carrinho: novoCarrinho,
-        status: novoCarrinho.length === 0 ? 'Livre' : m.status
+        ...m, carrinho: novoCarrinho, status: novoCarrinho.length === 0 ? 'Livre' : m.status
       } : m);
-      return {
-        ...state,
-        carrinho: novoCarrinho,
-        mesas: novasMesas
-      };
+      return { ...state, carrinho: novoCarrinho, mesas: novasMesas };
     }
     case 'LIMPAR_CARRINHO': {
       const novasMesas = state.mesas.map(m => m.numero === state.mesaSelecionada ? {
-        ...m,
-        carrinho: [],
-        descontoPercent: 0,
-        status: 'Livre'
+        ...m, carrinho: [], descontoPercent: 0, status: 'Livre'
       } : m);
-      return {
-        ...state,
-        carrinho: [],
-        descontoPercent: 0,
-        mesas: novasMesas
-      };
+      return { ...state, carrinho: [], descontoPercent: 0, mesas: novasMesas };
     }
     case 'SET_DESCONTO': {
       const novoDesconto = Math.min(100, Math.max(0, action.payload));
-      const novasMesas = state.mesas.map(m => m.numero === state.mesaSelecionada ? {
-        ...m,
-        descontoPercent: novoDesconto
-      } : m);
-      return {
-        ...state,
-        descontoPercent: novoDesconto,
-        mesas: novasMesas
-      };
+      const novasMesas = state.mesas.map(m => m.numero === state.mesaSelecionada ? { ...m, descontoPercent: novoDesconto } : m);
+      return { ...state, descontoPercent: novoDesconto, mesas: novasMesas };
     }
-
-    // ---- VENDAS ----
     case 'FINALIZAR_VENDA': {
       const { formaPagamento } = action.payload;
       const subtotal = state.carrinho.reduce((acc, i) => acc + i.preco * i.qtd, 0);
       const desconto = subtotal * (state.descontoPercent / 100);
       const total = subtotal - desconto;
       const venda = {
-        id: gerarId(),
-        data: new Date().toISOString().slice(0, 10),
+        id: gerarId(), data: new Date().toISOString().slice(0, 10),
         itens: state.carrinho.map(i => ({ produtoId: i.produtoId, nome: i.nome, qtd: i.qtd, preco: i.preco })),
-        total,
-        desconto: state.descontoPercent,
-        formaPagamento,
+        total, desconto: state.descontoPercent, formaPagamento,
         operador: state.turnoAtual?.operador || 'Sistema',
       };
-      // Atualizar estoque
       const novosProdutos = state.produtos.map(p => {
         const itemCarrinho = state.carrinho.find(i => i.produtoId === p.id);
-        if (itemCarrinho) {
-          return { ...p, estoque: Math.max(0, p.estoque - itemCarrinho.qtd) };
-        }
+        if (itemCarrinho) return { ...p, estoque: Math.max(0, p.estoque - itemCarrinho.qtd) };
         return p;
       });
-      // Registrar movimentações de saída
       const novasMovs = state.carrinho.map(i => ({
         id: gerarId(), produtoId: i.produtoId, tipo: 'saida', quantidade: i.qtd,
         fornecedor: `Venda #${venda.id} (Mesa ${state.mesaSelecionada || 'N/A'})`, data: venda.data,
       }));
-      // Atualizar turno se aberto
       let turnoAtualizado = state.turnoAtual;
       if (turnoAtualizado) {
         turnoAtualizado = {
@@ -266,70 +190,41 @@ function reducer(state, action) {
           totalPix: (turnoAtualizado.totalPix || 0) + (formaPagamento === 'pix' ? total : 0),
         };
       }
-      // Limpar mesa e restaurar Livre
       const novasMesas = state.mesas.map(m => m.numero === state.mesaSelecionada ? {
-        ...m,
-        carrinho: [],
-        descontoPercent: 0,
-        status: 'Livre'
+        ...m, carrinho: [], descontoPercent: 0, status: 'Livre', nome: null
       } : m);
       return {
-        ...state,
-        produtos: novosProdutos,
+        ...state, produtos: novosProdutos,
         vendas: [...state.vendas, venda],
         movimentacoes: [...state.movimentacoes, ...novasMovs],
-        carrinho: [],
-        descontoPercent: 0,
-        turnoAtual: turnoAtualizado,
-        mesas: novasMesas,
+        carrinho: [], descontoPercent: 0, turnoAtual: turnoAtualizado, mesas: novasMesas,
       };
     }
-
-    // ---- MESAS ----
     case 'SELECIONAR_MESA': {
-      const novaMesa = action.payload; // number or null
+      const novaMesa = action.payload;
       let novasMesas = state.mesas ? [...state.mesas] : [];
-      
-      // Save current cart and discount to the currently selected table (if any)
       if (state.mesaSelecionada) {
         novasMesas = novasMesas.map(m => m.numero === state.mesaSelecionada ? {
-          ...m,
-          carrinho: state.carrinho,
-          descontoPercent: state.descontoPercent,
-          status: state.carrinho.length > 0 
-            ? (m.status === 'Livre' ? 'Ocupada' : m.status)
-            : 'Livre'
+          ...m, carrinho: state.carrinho, descontoPercent: state.descontoPercent,
+          status: state.carrinho.length > 0 ? (m.status === 'Livre' ? 'Ocupada' : m.status) : 'Livre'
         } : m);
       }
-      
-      // Load cart and discount from the newly selected table
       let novoCarrinho = [];
       let novoDesconto = 0;
       if (novaMesa) {
         const mesaInfo = novasMesas.find(m => m.numero === novaMesa);
-        if (mesaInfo) {
-          novoCarrinho = mesaInfo.carrinho || [];
-          novoDesconto = mesaInfo.descontoPercent || 0;
-        }
+        if (mesaInfo) { novoCarrinho = mesaInfo.carrinho || []; novoDesconto = mesaInfo.descontoPercent || 0; }
       }
-      
-      return {
-        ...state,
-        mesas: novasMesas,
-        mesaSelecionada: novaMesa,
-        carrinho: novoCarrinho,
-        descontoPercent: novoDesconto
-      };
+      return { ...state, mesas: novasMesas, mesaSelecionada: novaMesa, carrinho: novoCarrinho, descontoPercent: novoDesconto };
     }
     case 'SET_STATUS_MESA': {
       const { numero, status } = action.payload;
-      return {
-        ...state,
-        mesas: state.mesas.map(m => m.numero === numero ? { ...m, status } : m)
-      };
+      return { ...state, mesas: state.mesas.map(m => m.numero === numero ? { ...m, status } : m) };
     }
-
-    // ---- PRODUTOS ----
+    case 'RENOMEAR_MESA': {
+      const { numero, nome } = action.payload;
+      return { ...state, mesas: state.mesas.map(m => m.numero === numero ? { ...m, nome: nome.trim() || null } : m) };
+    }
     case 'ADICIONAR_PRODUTO':
       return { ...state, produtos: [...state.produtos, { ...action.payload, id: gerarId() }] };
     case 'EDITAR_PRODUTO':
@@ -353,25 +248,19 @@ function reducer(state, action) {
         }),
       };
     }
-
-    // ---- CATEGORIAS ----
     case 'ADICIONAR_CATEGORIA':
       return { ...state, categorias: [...state.categorias, { id: gerarId(), nome: action.payload, ordem: state.categorias.length }] };
     case 'RENOMEAR_CATEGORIA':
       return { ...state, categorias: state.categorias.map(c => c.id === action.payload.id ? { ...c, nome: action.payload.nome } : c) };
-
-    // ---- ESTOQUE ----
     case 'ENTRADA_ESTOQUE': {
-      const { produtoId, quantity, fornecedor, data } = action.payload; // Wait, quantity or quantidade? Let's check how it was. It was quantidade.
-      const mov = { id: gerarId(), produtoId, tipo: 'entrada', quantidade: action.payload.quantidade, fornecedor, data };
+      const { produtoId, quantidade, fornecedor, data } = action.payload;
+      const mov = { id: gerarId(), produtoId, tipo: 'entrada', quantidade, fornecedor, data };
       return {
         ...state,
-        produtos: state.produtos.map(p => p.id === produtoId ? { ...p, estoque: p.estoque + action.payload.quantidade } : p),
+        produtos: state.produtos.map(p => p.id === produtoId ? { ...p, estoque: p.estoque + quantidade } : p),
         movimentacoes: [...state.movimentacoes, mov],
       };
     }
-
-    // ---- CAIXA/TURNOS ----
     case 'ABRIR_TURNO': {
       const { operador, valorInicial } = action.payload;
       const turno = {
@@ -383,56 +272,30 @@ function reducer(state, action) {
     }
     case 'SANGRIA': {
       if (!state.turnoAtual) return state;
-      return {
-        ...state,
-        turnoAtual: {
-          ...state.turnoAtual,
-          sangrias: [...state.turnoAtual.sangrias, { valor: action.payload.valor, motivo: action.payload.motivo }],
-        },
-      };
+      return { ...state, turnoAtual: { ...state.turnoAtual, sangrias: [...state.turnoAtual.sangrias, { valor: action.payload.valor, motivo: action.payload.motivo }] } };
     }
     case 'SUPRIMENTO': {
       if (!state.turnoAtual) return state;
-      return {
-        ...state,
-        turnoAtual: {
-          ...state.turnoAtual,
-          suprimentos: [...state.turnoAtual.suprimentos, { valor: action.payload.valor, motivo: action.payload.motivo }],
-        },
-      };
+      return { ...state, turnoAtual: { ...state.turnoAtual, suprimentos: [...state.turnoAtual.suprimentos, { valor: action.payload.valor, motivo: action.payload.motivo }] } };
     }
     case 'FECHAR_TURNO': {
       if (!state.turnoAtual) return state;
-      const turnoFechado = {
-        ...state.turnoAtual,
-        dataFechamento: new Date().toISOString(),
-        status: 'fechado',
-      };
-      return {
-        ...state,
-        turnos: [...state.turnos, turnoFechado],
-        turnoAtual: null,
-      };
+      const turnoFechado = { ...state.turnoAtual, dataFechamento: new Date().toISOString(), status: 'fechado' };
+      return { ...state, turnos: [...state.turnos, turnoFechado], turnoAtual: null };
     }
-
     case 'RESET':
       return estadoInicial;
-
     default:
       return state;
   }
 }
-
-// ============================================================
-// COMPONENTE: TOAST NOTIFICATIONS
-// ============================================================
 
 function ToastContainer({ toasts, removeToast }) {
   return (
     <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
       {toasts.map(t => (
         <div key={t.id}
-          className={`pointer-events-auto animate-toast-in flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-sm min-w-[280px] max-w-[400px]
+          className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border min-w-[280px] max-w-[400px]
             ${t.tipo === 'sucesso' ? 'bg-green-900/90 border-green-700 text-green-100' :
               t.tipo === 'erro' ? 'bg-red-900/90 border-red-700 text-red-100' :
               t.tipo === 'aviso' ? 'bg-yellow-900/90 border-yellow-700 text-yellow-100' :
@@ -450,15 +313,11 @@ function ToastContainer({ toasts, removeToast }) {
   );
 }
 
-// ============================================================
-// COMPONENTE: MODAL DE CONFIRMAÇÃO
-// ============================================================
-
 function ModalConfirmacao({ aberto, titulo, mensagem, onConfirmar, onCancelar }) {
   if (!aberto) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop" onClick={onCancelar}>
-      <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl animate-fade-in" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onCancelar}>
+      <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 rounded-full bg-orange-500/20">
             <AlertTriangle size={24} className="text-orange-400" />
@@ -467,23 +326,15 @@ function ModalConfirmacao({ aberto, titulo, mensagem, onConfirmar, onCancelar })
         </div>
         <p className="text-slate-300 mb-6">{mensagem}</p>
         <div className="flex gap-3 justify-end">
-          <button onClick={onCancelar} className="px-4 py-2 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 transition cursor-pointer">
-            Cancelar
-          </button>
-          <button onClick={onConfirmar} className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition font-semibold cursor-pointer">
-            Confirmar
-          </button>
+          <button onClick={onCancelar} className="px-4 py-2 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 transition cursor-pointer">Cancelar</button>
+          <button onClick={onConfirmar} className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition font-semibold cursor-pointer">Confirmar</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ============================================================
-// COMPONENTE: SIDEBAR
-// ============================================================
-
-function Sidebar({ paginaAtual, setPagina, sidebarAberta, setSidebarAberta, turnoAtual }) {
+function Sidebar({ paginaAtual, setPagina, sidebarAberta, setSidebarAberta }) {
   const itens = [
     { id: 'pdv', label: 'PDV', icon: ShoppingCart },
     { id: 'cardapio', label: 'Cardápio', icon: UtensilsCrossed },
@@ -491,51 +342,39 @@ function Sidebar({ paginaAtual, setPagina, sidebarAberta, setSidebarAberta, turn
     { id: 'caixa', label: 'Caixa', icon: Calculator },
     { id: 'relatorios', label: 'Relatórios', icon: BarChart3 },
   ];
-
-  const produtosCtx = useContext(AppContext);
-  const alertas = produtosCtx.state.produtos.filter(p => p.ativo && p.estoque <= p.estoqueMinimo).length;
+  const { state } = useContext(AppContext);
+  const alertas = state.produtos.filter(p => p.ativo && p.estoque <= p.estoqueMinimo).length;
 
   return (
-    <aside className={`fixed left-0 top-0 h-full bg-slate-900 border-r border-slate-700/50 z-40 transition-all duration-300 flex flex-col
-      ${sidebarAberta ? 'w-56' : 'w-16'}`}>
-      {/* Logo */}
+    <aside className={`fixed left-0 top-0 h-full bg-slate-900 border-r border-slate-700/50 z-40 transition-all duration-300 flex flex-col ${sidebarAberta ? 'w-56' : 'w-16'}`}>
       <div className="p-3 border-b border-slate-700/50 flex items-center gap-2 min-h-[60px]">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-orange-500/20">
+        <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center flex-shrink-0">
           <Receipt size={20} className="text-white" />
         </div>
         {sidebarAberta && (
-          <div className="animate-fade-in overflow-hidden">
-            <h1 className="font-extrabold text-sm gradient-text whitespace-nowrap">PDV BAR</h1>
+          <div>
+            <h1 className="font-extrabold text-sm text-orange-400 whitespace-nowrap">PDV BAR</h1>
             <p className="text-[10px] text-slate-500 whitespace-nowrap">& Restaurante</p>
           </div>
         )}
       </div>
-
-      {/* Navegação */}
       <nav className="flex-1 py-2">
         {itens.map(item => {
           const Icon = item.icon;
           const ativo = paginaAtual === item.id;
           return (
-            <button key={item.id}
-              onClick={() => setPagina(item.id)}
-              className={`sidebar-item w-full flex items-center gap-3 px-4 py-3 cursor-pointer relative
-                ${ativo ? 'active text-orange-400' : 'text-slate-400 hover:text-white'}`}
-              title={item.label}
-            >
+            <button key={item.id} onClick={() => setPagina(item.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 cursor-pointer relative transition
+                ${ativo ? 'text-orange-400 bg-orange-500/10 border-r-2 border-orange-500' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
               <Icon size={20} className="flex-shrink-0" />
-              {sidebarAberta && <span className="text-sm font-medium animate-fade-in whitespace-nowrap">{item.label}</span>}
+              {sidebarAberta && <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>}
               {item.id === 'estoque' && alertas > 0 && (
-                <span className="absolute top-1 left-8 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold">
-                  {alertas}
-                </span>
+                <span className="absolute top-1 left-8 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold">{alertas}</span>
               )}
             </button>
           );
         })}
       </nav>
-
-      {/* Toggle */}
       <button onClick={() => setSidebarAberta(!sidebarAberta)}
         className="p-3 border-t border-slate-700/50 text-slate-400 hover:text-white transition cursor-pointer flex items-center justify-center">
         {sidebarAberta ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
@@ -544,19 +383,13 @@ function Sidebar({ paginaAtual, setPagina, sidebarAberta, setSidebarAberta, turn
   );
 }
 
-// ============================================================
-// COMPONENTE: TOPBAR
-// ============================================================
-
 function Topbar({ turnoAtual, totalVendasHoje }) {
   return (
-    <header className="h-[60px] bg-slate-900/80 backdrop-blur-sm border-b border-slate-700/50 flex items-center justify-between px-4 sticky top-0 z-30">
+    <header className="h-[60px] bg-slate-900/80 border-b border-slate-700/50 flex items-center justify-between px-4 sticky top-0 z-30">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 text-sm">
           <Users size={16} className="text-slate-400" />
-          <span className="text-slate-300 font-medium">
-            {turnoAtual ? turnoAtual.operador : 'Sem turno aberto'}
-          </span>
+          <span className="text-slate-300 font-medium">{turnoAtual ? turnoAtual.operador : 'Sem turno aberto'}</span>
         </div>
         {turnoAtual && (
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/30">
@@ -579,15 +412,15 @@ function Topbar({ turnoAtual, totalVendasHoje }) {
   );
 }
 
-// ============================================================
-// MÓDULO 1: FRENTE DE CAIXA (PDVfunction FrenteDeCaixa() {
+// MÓDULO 1: FRENTE DE CAIXA (PDV)
+function FrenteDeCaixa() {
   const { state, dispatch, addToast } = useContext(AppContext);
   const [busca, setBusca] = useState('');
   const [categoriaFiltro, setCategoriaFiltro] = useState('todas');
   const [modalPagamento, setModalPagamento] = useState(false);
   const [formaPagamento, setFormaPagamento] = useState('');
   const [valorPago, setValorPago] = useState('');
-  const [visualizacao, setVisualizacao] = useState('produtos'); // 'produtos' | 'mesas'
+  const [visualizacao, setVisualizacao] = useState('produtos');
 
   const produtosFiltrados = state.produtos
     .filter(p => p.ativo)
@@ -599,58 +432,37 @@ function Topbar({ turnoAtual, totalVendasHoje }) {
   const desconto = subtotal * (state.descontoPercent / 100);
   const total = subtotal - desconto;
   const totalItens = state.carrinho.reduce((acc, i) => acc + i.qtd, 0);
-
   const troco = formaPagamento === 'dinheiro' && valorPago ? Math.max(0, parseFloat(valorPago.replace(',', '.')) - total) : 0;
 
   const finalizarVenda = () => {
-    if (state.carrinho.length === 0) {
-      addToast('Carrinho vazio!', 'aviso');
-      return;
-    }
-    if (!state.turnoAtual) {
-      addToast('Abra um turno antes de vender!', 'aviso');
-      return;
-    }
+    if (state.carrinho.length === 0) { addToast('Carrinho vazio!', 'aviso'); return; }
+    if (!state.turnoAtual) { addToast('Abra um turno antes de vender!', 'aviso'); return; }
     if (formaPagamento === 'dinheiro') {
       const pago = parseFloat(valorPago.replace(',', '.'));
-      if (isNaN(pago) || pago < total) {
-        addToast('Valor pago insuficiente!', 'erro');
-        return;
-      }
+      if (isNaN(pago) || pago < total) { addToast('Valor pago insuficiente!', 'erro'); return; }
     }
     dispatch({ type: 'FINALIZAR_VENDA', payload: { formaPagamento } });
     setModalPagamento(false);
     setFormaPagamento('');
     setValorPago('');
-    addToast(`Venda de ${formatarMoeda(total)} finalizada com sucesso! Mesa livre.`, 'sucesso');
-  };
-
-  const selecionarMesaPainel = (numero) => {
-    dispatch({ type: 'SELECIONAR_MESA', payload: numero });
-    setVisualizacao('produtos');
+    addToast(`Venda de ${formatarMoeda(total)} finalizada! Mesa livre.`, 'sucesso');
   };
 
   return (
     <div className="flex h-[calc(100vh-60px)] gap-0">
-      {/* Área de Produtos ou Mesas */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Toggle de Visualização */}
         <div className="flex border-b border-slate-700/50 bg-slate-900/40 p-2 gap-2">
-          <button
-            onClick={() => setVisualizacao('produtos')}
+          <button onClick={() => setVisualizacao('produtos')}
             className={`flex-1 py-2 px-4 rounded-lg font-bold text-sm transition cursor-pointer flex items-center justify-center gap-2
-              ${visualizacao === 'produtos' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'}`}
-          >
-            <UtensilsCrossed size={16} /> Cardápio / Produtos
+              ${visualizacao === 'produtos' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'}`}>
+            <UtensilsCrossed size={16} /> Cardápio
           </button>
-          <button
-            onClick={() => setVisualizacao('mesas')}
+          <button onClick={() => setVisualizacao('mesas')}
             className={`flex-1 py-2 px-4 rounded-lg font-bold text-sm transition cursor-pointer flex items-center justify-center gap-2 relative
-              ${visualizacao === 'mesas' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'}`}
-          >
+              ${visualizacao === 'mesas' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'}`}>
             <Users size={16} /> Painel de Mesas
             {state.mesas?.filter(m => m.status !== 'Livre').length > 0 && (
-              <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-bounce">
+              <span className="absolute -top-1.5 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                 {state.mesas.filter(m => m.status !== 'Livre').length}
               </span>
             )}
@@ -659,17 +471,13 @@ function Topbar({ turnoAtual, totalVendasHoje }) {
 
         {visualizacao === 'produtos' ? (
           <>
-            {/* Busca e Categorias */}
             <div className="p-4 space-y-3">
               <div className="relative">
                 <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text" placeholder="Buscar produto..."
-                  value={busca} onChange={e => setBusca(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 transition text-sm"
-                />
+                <input type="text" placeholder="Buscar produto..." value={busca} onChange={e => setBusca(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 text-sm" />
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+              <div className="flex gap-2 overflow-x-auto pb-1">
                 <button onClick={() => setCategoriaFiltro('todas')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer
                     ${categoriaFiltro === 'todas' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'}`}>
@@ -684,8 +492,6 @@ function Topbar({ turnoAtual, totalVendasHoje }) {
                 ))}
               </div>
             </div>
-
-            {/* Grid de Produtos */}
             <div className="flex-1 overflow-y-auto p-4 pt-0">
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 {produtosFiltrados.map(produto => {
@@ -695,24 +501,19 @@ function Topbar({ turnoAtual, totalVendasHoje }) {
                   return (
                     <button key={produto.id}
                       onClick={() => {
-                        if (!state.mesaSelecionada) {
-                          addToast('Selecione uma mesa antes de registrar itens!', 'aviso');
-                          return;
-                        }
+                        if (!state.mesaSelecionada) { addToast('Selecione uma mesa!', 'aviso'); return; }
                         if (produto.estoque <= 0) { addToast(`${produto.nome} sem estoque!`, 'erro'); return; }
                         dispatch({ type: 'ADICIONAR_AO_CARRINHO', payload: produto });
                       }}
                       disabled={produto.estoque <= 0}
-                      className={`product-card bg-slate-800/80 border border-slate-700/50 rounded-xl p-3 text-left cursor-pointer relative
-                        ${produto.estoque <= 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
-                    >
+                      className={`bg-slate-800/80 border border-slate-700/50 rounded-xl p-3 text-left cursor-pointer relative hover:border-orange-500/50 transition
+                        ${produto.estoque <= 0 ? 'opacity-40 cursor-not-allowed' : ''}`}>
                       <div className="text-3xl mb-2">{produto.emoji}</div>
                       <p className="text-sm font-semibold text-white truncate">{produto.nome}</p>
                       <p className="text-orange-400 font-bold text-sm mt-1">{formatarMoeda(produto.preco)}</p>
                       {estoqueStatus !== 'ok' && (
                         <span className={`absolute top-2 right-2 w-2.5 h-2.5 rounded-full
-                          ${estoqueStatus === 'esgotado' ? 'bg-red-500' : estoqueStatus === 'critico' ? 'bg-red-400 animate-pulse' : 'bg-yellow-400'}`}
-                        />
+                          ${estoqueStatus === 'esgotado' ? 'bg-red-500' : estoqueStatus === 'critico' ? 'bg-red-400 animate-pulse' : 'bg-yellow-400'}`} />
                       )}
                       <p className="text-[10px] text-slate-500 mt-1">Estoque: {produto.estoque}</p>
                     </button>
@@ -728,45 +529,58 @@ function Topbar({ turnoAtual, totalVendasHoje }) {
             </div>
           </>
         ) : (
-          /* Painel de Mesas */
-          <div className="flex-1 overflow-y-auto p-6 animate-fade-in">
+          <div className="flex-1 overflow-y-auto p-6">
+            <p className="text-xs text-slate-500 mb-3 text-center">Clique para selecionar · Duplo clique para renomear</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {state.mesas?.map(m => {
                 const isSelected = state.mesaSelecionada === m.numero;
                 const totalMesa = m.carrinho?.reduce((acc, item) => acc + item.preco * item.qtd, 0) || 0;
-                const descontoMesa = totalMesa * ((m.descontoPercent || 0) / 100);
-                const totalMesaFinal = totalMesa - descontoMesa;
                 const totalItensMesa = m.carrinho?.reduce((acc, item) => acc + item.qtd, 0) || 0;
-
+                const nomeMesa = m.nome || `Mesa ${String(m.numero).padStart(2, '0')}`;
                 return (
-                  <button
-                    key={m.numero}
-                    onClick={() => selecionarMesaPainel(m.numero)}
-                    className={`p-4 rounded-xl border-2 text-left cursor-pointer transition flex flex-col justify-between h-[120px] relative
-                      ${isSelected ? 'border-orange-500 bg-slate-800 shadow-lg shadow-orange-500/10' : 'border-slate-700 bg-slate-800/60 hover:border-slate-500'}
-                      ${m.status === 'Livre' ? 'hover:shadow-green-500/5' : m.status === 'Ocupada' ? 'hover:shadow-orange-500/5' : 'hover:shadow-red-500/5'}`}
-                  >
-                    {/* Status Dot */}
-                    <span className={`absolute top-3 right-3 w-3 h-3 rounded-full
-                      ${m.status === 'Livre' ? 'bg-green-500 shadow-lg shadow-green-500/30' : m.status === 'Ocupada' ? 'bg-orange-500 shadow-lg shadow-orange-500/30 animate-pulse' : 'bg-red-500 shadow-lg shadow-red-500/30 animate-pulse'}`}
-                    />
-
-                    <div>
-                      <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Mesa</p>
-                      <h4 className="text-2xl font-black text-white">{String(m.numero).padStart(2, '0')}</h4>
-                    </div>
-
-                    <div className="mt-2">
-                      {totalItensMesa > 0 ? (
-                        <div>
-                          <p className="text-xs font-bold text-orange-400">{formatarMoeda(totalMesaFinal)}</p>
-                          <p className="text-[10px] text-slate-400">{totalItensMesa} {totalItensMesa === 1 ? 'item' : 'itens'}</p>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-slate-500 font-semibold italic">Livre</p>
-                      )}
-                    </div>
-                  </button>
+                  <div key={m.numero} className="relative group">
+                    <button
+                      onClick={() => { dispatch({ type: 'SELECIONAR_MESA', payload: m.numero }); setVisualizacao('produtos'); }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        const novoNome = window.prompt('Renomear mesa:', m.nome || `Mesa ${String(m.numero).padStart(2, '0')}`);
+                        if (novoNome !== null) {
+                          dispatch({ type: 'RENOMEAR_MESA', payload: { numero: m.numero, nome: novoNome } });
+                        }
+                      }}
+                      className={`w-full p-4 rounded-xl border-2 text-left cursor-pointer transition flex flex-col justify-between h-[130px] relative
+                        ${isSelected ? 'border-orange-500 bg-slate-800' : 'border-slate-700 bg-slate-800/60 hover:border-slate-500'}`}>
+                      <span className={`absolute top-3 right-3 w-3 h-3 rounded-full
+                        ${m.status === 'Livre' ? 'bg-green-500' : m.status === 'Ocupada' ? 'bg-orange-500 animate-pulse' : 'bg-red-500 animate-pulse'}`} />
+                      <div>
+                        <p className="text-xs text-slate-500 font-medium">#{String(m.numero).padStart(2, '0')}</p>
+                        <h4 className="text-base font-black text-white leading-tight mt-0.5 pr-4">{nomeMesa}</h4>
+                      </div>
+                      <div>
+                        {totalItensMesa > 0 ? (
+                          <div>
+                            <p className="text-xs font-bold text-orange-400">{formatarMoeda(totalMesa)}</p>
+                            <p className="text-[10px] text-slate-400">{totalItensMesa} {totalItensMesa === 1 ? 'item' : 'itens'}</p>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-500 font-semibold italic">{m.status}</p>
+                        )}
+                      </div>
+                    </button>
+                    {/* Botão de renomear visível no hover */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const novoNome = window.prompt('Renomear mesa:', m.nome || `Mesa ${String(m.numero).padStart(2, '0')}`);
+                        if (novoNome !== null) {
+                          dispatch({ type: 'RENOMEAR_MESA', payload: { numero: m.numero, nome: novoNome } });
+                        }
+                      }}
+                      className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition w-6 h-6 rounded-md bg-slate-700 hover:bg-orange-500 flex items-center justify-center"
+                      title="Renomear mesa">
+                      <Edit size={12} className="text-slate-300" />
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -779,8 +593,7 @@ function Topbar({ turnoAtual, totalVendasHoje }) {
         <div className="p-4 border-b border-slate-700/50">
           <div className="flex items-center justify-between">
             <h2 className="font-bold text-white flex items-center gap-2">
-              <ShoppingCart size={18} className="text-orange-400" />
-              Comanda
+              <ShoppingCart size={18} className="text-orange-400" /> Comanda
             </h2>
             <span className="bg-orange-500/20 text-orange-400 text-xs font-bold px-2 py-0.5 rounded-full">
               {totalItens} {totalItens === 1 ? 'item' : 'itens'}
@@ -788,49 +601,36 @@ function Topbar({ turnoAtual, totalVendasHoje }) {
           </div>
         </div>
 
-        {/* Seletor de Mesa */}
         <div className="p-4 border-b border-slate-800 bg-slate-950/40 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Mesa</label>
-            <select
-              value={state.mesaSelecionada || ''}
-              onChange={e => {
-                const num = e.target.value ? Number(e.target.value) : null;
-                dispatch({ type: 'SELECIONAR_MESA', payload: num });
-              }}
-              className="flex-1 max-w-[180px] bg-slate-800 border border-slate-700 text-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-orange-500 cursor-pointer"
-            >
+            <select value={state.mesaSelecionada || ''}
+              onChange={e => dispatch({ type: 'SELECIONAR_MESA', payload: e.target.value ? Number(e.target.value) : null })}
+              className="flex-1 max-w-[180px] bg-slate-800 border border-slate-700 text-white rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-orange-500 cursor-pointer">
               <option value="">Selecione a Mesa</option>
               {state.mesas?.map(m => {
-                let statusLabel = '';
-                if (m.status === 'Ocupada') statusLabel = ' (Ocupada)';
-                if (m.status === 'Conta pedida') statusLabel = ' (Conta)';
+                const nomeMesa = m.nome || `Mesa ${String(m.numero).padStart(2, '0')}`;
+                const statusLabel = m.status === 'Ocupada' ? ' (Ocupada)' : m.status === 'Conta pedida' ? ' (Conta)' : '';
                 return (
-                  <option key={m.numero} value={m.numero}>
-                    Mesa {m.numero}{statusLabel}
-                  </option>
+                  <option key={m.numero} value={m.numero}>{nomeMesa}{statusLabel}</option>
                 );
               })}
             </select>
           </div>
-
           {state.mesaSelecionada && (
-            <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-800/40 border border-slate-800 animate-fade-in">
+            <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-800/40 border border-slate-800">
               <span className="text-xs text-slate-400 font-semibold">Status:</span>
               <div className="flex gap-1">
                 {[
-                  { id: 'Livre', label: 'Livre', corBg: 'bg-green-500/10 text-green-400 border-green-500/20', activeBg: 'bg-green-500 text-white border-green-500' },
-                  { id: 'Ocupada', label: 'Ocupada', corBg: 'bg-orange-500/10 text-orange-400 border-orange-500/20', activeBg: 'bg-orange-500 text-white border-orange-500' },
-                  { id: 'Conta pedida', label: 'Conta Pedida', corBg: 'bg-red-500/10 text-red-400 border-red-500/20', activeBg: 'bg-red-500 text-white border-red-500' },
+                  { id: 'Livre', label: 'Livre', active: 'bg-green-500 text-white', inactive: 'bg-green-500/10 text-green-400 border border-green-500/20' },
+                  { id: 'Ocupada', label: 'Ocupada', active: 'bg-orange-500 text-white', inactive: 'bg-orange-500/10 text-orange-400 border border-orange-500/20' },
+                  { id: 'Conta pedida', label: 'Conta', active: 'bg-red-500 text-white', inactive: 'bg-red-500/10 text-red-400 border border-red-500/20' },
                 ].map(st => {
-                  const active = (state.mesas?.find(m => m.numero === state.mesaSelecionada)?.status || 'Livre') === st.id;
+                  const isActive = (state.mesas?.find(m => m.numero === state.mesaSelecionada)?.status || 'Livre') === st.id;
                   return (
-                    <button
-                      key={st.id}
+                    <button key={st.id}
                       onClick={() => dispatch({ type: 'SET_STATUS_MESA', payload: { numero: state.mesaSelecionada, status: st.id } })}
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer
-                        ${active ? st.activeBg : `${st.corBg} hover:bg-slate-800`}`}
-                    >
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${isActive ? st.active : st.inactive}`}>
                       {st.label}
                     </button>
                   );
@@ -840,13 +640,11 @@ function Topbar({ turnoAtual, totalVendasHoje }) {
           )}
         </div>
 
-        {/* Itens do carrinho */}
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {!state.mesaSelecionada ? (
             <div className="flex flex-col items-center justify-center py-16 text-slate-500">
-              <Users size={40} className="mb-2 opacity-20 text-orange-400 animate-pulse" />
+              <Users size={40} className="mb-2 opacity-20 text-orange-400" />
               <p className="text-sm font-semibold">Selecione uma mesa</p>
-              <p className="text-xs text-slate-500 mt-1">Selecione no topo ou no painel</p>
             </div>
           ) : state.carrinho.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-slate-500">
@@ -855,7 +653,7 @@ function Topbar({ turnoAtual, totalVendasHoje }) {
             </div>
           ) : (
             state.carrinho.map(item => (
-              <div key={item.produtoId} className="bg-slate-800 rounded-xl p-3 flex items-center gap-3 animate-slide-up">
+              <div key={item.produtoId} className="bg-slate-800 rounded-xl p-3 flex items-center gap-3">
                 <span className="text-xl">{item.emoji}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">{item.nome}</p>
@@ -882,36 +680,24 @@ function Topbar({ turnoAtual, totalVendasHoje }) {
           )}
         </div>
 
-        {/* Resumo e Pagamento */}
         <div className="p-4 border-t border-slate-700/50 space-y-3">
-          {/* Desconto */}
           <div className="flex items-center gap-2">
             <label className="text-xs text-slate-400 whitespace-nowrap">Desconto %</label>
             <input type="number" min={0} max={100} value={state.descontoPercent}
               onChange={e => dispatch({ type: 'SET_DESCONTO', payload: Number(e.target.value) })}
               className="w-16 px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm text-center focus:outline-none focus:border-orange-500"
-              disabled={!state.mesaSelecionada}
-            />
+              disabled={!state.mesaSelecionada} />
             {desconto > 0 && <span className="text-xs text-green-400">-{formatarMoeda(desconto)}</span>}
           </div>
-
           <div className="space-y-1 text-sm">
-            <div className="flex justify-between text-slate-400">
-              <span>Subtotal</span><span>{formatarMoeda(subtotal)}</span>
-            </div>
-            {desconto > 0 && (
-              <div className="flex justify-between text-green-400">
-                <span>Desconto ({state.descontoPercent}%)</span><span>-{formatarMoeda(desconto)}</span>
-              </div>
-            )}
+            <div className="flex justify-between text-slate-400"><span>Subtotal</span><span>{formatarMoeda(subtotal)}</span></div>
+            {desconto > 0 && <div className="flex justify-between text-green-400"><span>Desconto ({state.descontoPercent}%)</span><span>-{formatarMoeda(desconto)}</span></div>}
             <div className="flex justify-between text-lg font-extrabold text-white pt-1 border-t border-slate-700">
               <span>Total</span><span className="text-orange-400">{formatarMoeda(total)}</span>
             </div>
           </div>
-
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => dispatch({ type: 'LIMPAR_CARRINHO' })}
-              disabled={!state.mesaSelecionada}
+            <button onClick={() => dispatch({ type: 'LIMPAR_CARRINHO' })} disabled={!state.mesaSelecionada}
               className="py-2.5 rounded-xl bg-slate-700 text-slate-300 hover:bg-slate-600 font-semibold text-sm transition cursor-pointer flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed">
               <Trash2 size={14} /> Limpar
             </button>
@@ -924,43 +710,37 @@ function Topbar({ turnoAtual, totalVendasHoje }) {
         </div>
       </div>
 
-      {/* Modal de Pagamento */}
       {modalPagamento && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop" onClick={() => setModalPagamento(false)}>
-          <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl animate-fade-in" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setModalPagamento(false)}>
+          <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-white">Pagamento - Mesa {state.mesaSelecionada}</h3>
+              <h3 className="text-xl font-bold text-white">Pagamento - {state.mesas?.find(m => m.numero === state.mesaSelecionada)?.nome || `Mesa ${String(state.mesaSelecionada).padStart(2, '0')}`}</h3>
               <button onClick={() => setModalPagamento(false)} className="text-slate-400 hover:text-white cursor-pointer"><X size={24} /></button>
             </div>
-
             <div className="text-center mb-6">
               <p className="text-sm text-slate-400">Total a pagar</p>
               <p className="text-3xl font-extrabold text-orange-400">{formatarMoeda(total)}</p>
             </div>
-
             <div className="grid grid-cols-2 gap-3 mb-6">
               {[
-                { id: 'dinheiro', label: 'Dinheiro', icon: Banknote, cor: 'green' },
-                { id: 'credito', label: 'Crédito', icon: CreditCard, cor: 'blue' },
-                { id: 'debito', label: 'Débito', icon: CreditCard, cor: 'purple' },
-                { id: 'pix', label: 'PIX', icon: QrCode, cor: 'cyan' },
+                { id: 'dinheiro', label: 'Dinheiro', icon: Banknote },
+                { id: 'credito', label: 'Crédito', icon: CreditCard },
+                { id: 'debito', label: 'Débito', icon: CreditCard },
+                { id: 'pix', label: 'PIX', icon: QrCode },
               ].map(fp => {
                 const Icon = fp.icon;
                 return (
                   <button key={fp.id} onClick={() => setFormaPagamento(fp.id)}
                     className={`p-4 rounded-xl border-2 transition cursor-pointer flex flex-col items-center gap-2
-                      ${formaPagamento === fp.id
-                        ? 'border-orange-500 bg-orange-500/10 text-orange-400'
-                        : 'border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-500'}`}>
+                      ${formaPagamento === fp.id ? 'border-orange-500 bg-orange-500/10 text-orange-400' : 'border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-500'}`}>
                     <Icon size={28} />
                     <span className="text-sm font-semibold">{fp.label}</span>
                   </button>
                 );
               })}
             </div>
-
             {formaPagamento === 'dinheiro' && (
-              <div className="mb-4 space-y-3 animate-fade-in">
+              <div className="mb-4 space-y-3">
                 <div>
                   <label className="text-sm text-slate-400 mb-1 block">Valor recebido</label>
                   <input type="text" value={valorPago} onChange={e => setValorPago(e.target.value)}
@@ -975,7 +755,6 @@ function Topbar({ turnoAtual, totalVendasHoje }) {
                 )}
               </div>
             )}
-
             <button onClick={finalizarVenda} disabled={!formaPagamento}
               className={`w-full py-3 rounded-xl font-bold text-lg transition cursor-pointer flex items-center justify-center gap-2
                 ${formaPagamento ? 'bg-orange-500 text-white hover:bg-orange-600' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}>
@@ -986,21 +765,12 @@ function Topbar({ turnoAtual, totalVendasHoje }) {
       )}
     </div>
   );
-}  </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
-// ============================================================
 // MÓDULO 2: CARDÁPIO EDITÁVEL
-// ============================================================
-
 function CardapioEditavel() {
   const { state, dispatch, addToast } = useContext(AppContext);
-  const [modalProduto, setModalProduto] = useState(null); // null = fechado, 'novo' ou objeto produto
+  const [modalProduto, setModalProduto] = useState(null);
   const [form, setForm] = useState({ nome: '', emoji: '🍽️', preco: '', categoriaId: '', ativo: true });
   const [novaCategoria, setNovaCategoria] = useState('');
   const [editandoCat, setEditandoCat] = useState(null);
@@ -1018,26 +788,14 @@ function CardapioEditavel() {
   };
 
   const salvarProduto = () => {
-    if (!form.nome || !form.preco || !form.categoriaId) {
-      addToast('Preencha todos os campos!', 'aviso');
-      return;
-    }
+    if (!form.nome || !form.preco || !form.categoriaId) { addToast('Preencha todos os campos!', 'aviso'); return; }
     const preco = parseFloat(form.preco.replace(',', '.'));
-    if (isNaN(preco) || preco <= 0) {
-      addToast('Preço inválido!', 'erro');
-      return;
-    }
+    if (isNaN(preco) || preco <= 0) { addToast('Preço inválido!', 'erro'); return; }
     if (modalProduto === 'novo') {
-      dispatch({
-        type: 'ADICIONAR_PRODUTO',
-        payload: { ...form, preco, estoque: 0, estoqueMinimo: 5, ordem: state.produtos.filter(p => p.categoriaId === form.categoriaId).length },
-      });
+      dispatch({ type: 'ADICIONAR_PRODUTO', payload: { ...form, preco, estoque: 0, estoqueMinimo: 5, ordem: state.produtos.filter(p => p.categoriaId === form.categoriaId).length } });
       addToast(`Produto "${form.nome}" adicionado!`, 'sucesso');
     } else {
-      dispatch({
-        type: 'EDITAR_PRODUTO',
-        payload: { id: modalProduto.id, ...form, preco },
-      });
+      dispatch({ type: 'EDITAR_PRODUTO', payload: { id: modalProduto.id, ...form, preco } });
       addToast(`Produto "${form.nome}" atualizado!`, 'sucesso');
     }
     setModalProduto(null);
@@ -1060,21 +818,18 @@ function CardapioEditavel() {
   return (
     <div className="p-4 lg:p-6 h-[calc(100vh-60px)] overflow-y-auto">
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-extrabold text-white flex items-center gap-2">
-            <UtensilsCrossed size={24} className="text-orange-400" />
-            Cardápio
+            <UtensilsCrossed size={24} className="text-orange-400" /> Cardápio
           </h2>
           <div className="flex gap-2">
-            <button onClick={() => setAbaCardapio('produtos')}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition cursor-pointer ${abaCardapio === 'produtos' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400'}`}>
-              Produtos
-            </button>
-            <button onClick={() => setAbaCardapio('categorias')}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition cursor-pointer ${abaCardapio === 'categorias' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400'}`}>
-              Categorias
-            </button>
+            {['produtos', 'categorias'].map(aba => (
+              <button key={aba} onClick={() => setAbaCardapio(aba)}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition cursor-pointer capitalize
+                  ${abaCardapio === aba ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                {aba}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -1084,7 +839,6 @@ function CardapioEditavel() {
               className="mb-4 px-4 py-2.5 rounded-xl bg-orange-500 text-white hover:bg-orange-600 font-semibold text-sm transition cursor-pointer flex items-center gap-2">
               <Plus size={16} /> Novo Produto
             </button>
-
             <div className="space-y-2">
               {state.categorias.sort((a, b) => a.ordem - b.ordem).map(cat => {
                 const prods = state.produtos.filter(p => p.categoriaId === cat.id).sort((a, b) => a.ordem - b.ordem);
@@ -1097,27 +851,23 @@ function CardapioEditavel() {
                     <div className="space-y-1">
                       {prods.map((produto, idx) => (
                         <div key={produto.id}
-                          className={`flex items-center gap-3 p-3 rounded-xl bg-slate-800/80 border border-slate-700/50 hover:border-slate-600 transition
-                            ${!produto.ativo ? 'opacity-50' : ''}`}>
+                          className={`flex items-center gap-3 p-3 rounded-xl bg-slate-800/80 border border-slate-700/50 hover:border-slate-600 transition ${!produto.ativo ? 'opacity-50' : ''}`}>
                           <span className="text-2xl">{produto.emoji}</span>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-white">{produto.nome}</p>
                             <p className="text-xs text-slate-400">{formatarMoeda(produto.preco)} · Estoque: {produto.estoque}</p>
                           </div>
                           <div className="flex items-center gap-1">
-                            <button onClick={() => dispatch({ type: 'REORDENAR_PRODUTO', payload: { id: produto.id, direcao: 'up' } })}
-                              disabled={idx === 0}
+                            <button onClick={() => dispatch({ type: 'REORDENAR_PRODUTO', payload: { id: produto.id, direcao: 'up' } })} disabled={idx === 0}
                               className="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-slate-400 cursor-pointer disabled:opacity-30 transition">
                               <ArrowUp size={14} />
                             </button>
-                            <button onClick={() => dispatch({ type: 'REORDENAR_PRODUTO', payload: { id: produto.id, direcao: 'down' } })}
-                              disabled={idx === prods.length - 1}
+                            <button onClick={() => dispatch({ type: 'REORDENAR_PRODUTO', payload: { id: produto.id, direcao: 'down' } })} disabled={idx === prods.length - 1}
                               className="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-slate-400 cursor-pointer disabled:opacity-30 transition">
                               <ArrowDown size={14} />
                             </button>
                             <button onClick={() => dispatch({ type: 'TOGGLE_PRODUTO', payload: produto.id })}
-                              className={`w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition
-                                ${produto.ativo ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'}`}>
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition ${produto.ativo ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                               {produto.ativo ? <Eye size={14} /> : <EyeOff size={14} />}
                             </button>
                             <button onClick={() => abrirEditarProduto(produto)}
@@ -1134,7 +884,6 @@ function CardapioEditavel() {
             </div>
           </>
         ) : (
-          /* Aba Categorias */
           <div className="space-y-4">
             <div className="flex gap-2">
               <input type="text" value={novaCategoria} onChange={e => setNovaCategoria(e.target.value)}
@@ -1172,27 +921,24 @@ function CardapioEditavel() {
         )}
       </div>
 
-      {/* Modal de Produto */}
       {modalProduto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop" onClick={() => setModalProduto(null)}>
-          <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl animate-fade-in" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setModalProduto(null)}>
+          <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-white mb-4">{modalProduto === 'novo' ? 'Novo Produto' : 'Editar Produto'}</h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-slate-400 mb-1 block">Emoji / Ícone</label>
+                <label className="text-xs text-slate-400 mb-1 block">Emoji</label>
                 <input type="text" value={form.emoji} onChange={e => setForm({ ...form, emoji: e.target.value })}
                   className="w-16 px-3 py-2 rounded-xl bg-slate-700 border border-slate-600 text-white text-2xl text-center focus:outline-none focus:border-orange-500" />
               </div>
               <div>
                 <label className="text-xs text-slate-400 mb-1 block">Nome</label>
-                <input type="text" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })}
-                  placeholder="Nome do produto"
+                <input type="text" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Nome do produto"
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-700 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 text-sm" />
               </div>
               <div>
                 <label className="text-xs text-slate-400 mb-1 block">Preço (R$)</label>
-                <input type="text" value={form.preco} onChange={e => setForm({ ...form, preco: e.target.value })}
-                  placeholder="0,00"
+                <input type="text" value={form.preco} onChange={e => setForm({ ...form, preco: e.target.value })} placeholder="0,00"
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-700 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 text-sm" />
               </div>
               <div>
@@ -1217,10 +963,7 @@ function CardapioEditavel() {
   );
 }
 
-// ============================================================
 // MÓDULO 3: CONTROLE DE ESTOQUE
-// ============================================================
-
 function ControleEstoque() {
   const { state, dispatch, addToast } = useContext(AppContext);
   const [modalEntrada, setModalEntrada] = useState(null);
@@ -1229,7 +972,6 @@ function ControleEstoque() {
   const [abaEstoque, setAbaEstoque] = useState('lista');
 
   const alertas = state.produtos.filter(p => p.ativo && p.estoque <= p.estoqueMinimo);
-  const criticos = state.produtos.filter(p => p.ativo && p.estoque <= p.estoqueMinimo * 0.25);
 
   const produtosFiltrados = state.produtos.filter(p => {
     if (filtroEstoque === 'baixo') return p.estoque <= p.estoqueMinimo && p.estoque > p.estoqueMinimo * 0.25;
@@ -1242,10 +984,7 @@ function ControleEstoque() {
     const qtd = parseInt(entradaForm.quantidade);
     if (isNaN(qtd) || qtd <= 0) { addToast('Quantidade inválida!', 'erro'); return; }
     if (!entradaForm.fornecedor.trim()) { addToast('Informe o fornecedor!', 'aviso'); return; }
-    dispatch({
-      type: 'ENTRADA_ESTOQUE',
-      payload: { produtoId: modalEntrada.id, quantidade: qtd, fornecedor: entradaForm.fornecedor, data: entradaForm.data },
-    });
+    dispatch({ type: 'ENTRADA_ESTOQUE', payload: { produtoId: modalEntrada.id, quantidade: qtd, fornecedor: entradaForm.fornecedor, data: entradaForm.data } });
     addToast(`+${qtd} unidades de ${modalEntrada.nome} adicionadas!`, 'sucesso');
     setModalEntrada(null);
     setEntradaForm({ quantidade: '', fornecedor: '', data: getHojeStr() });
@@ -1262,27 +1001,24 @@ function ControleEstoque() {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-extrabold text-white flex items-center gap-2">
-            <Warehouse size={24} className="text-orange-400" />
-            Estoque
+            <Warehouse size={24} className="text-orange-400" /> Estoque
           </h2>
           <div className="flex gap-2">
-            <button onClick={() => setAbaEstoque('lista')}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition cursor-pointer ${abaEstoque === 'lista' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400'}`}>
-              Lista
-            </button>
-            <button onClick={() => setAbaEstoque('historico')}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition cursor-pointer ${abaEstoque === 'historico' ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400'}`}>
-              Histórico
-            </button>
+            {['lista', 'historico'].map(aba => (
+              <button key={aba} onClick={() => setAbaEstoque(aba)}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition cursor-pointer capitalize
+                  ${abaEstoque === aba ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                {aba === 'historico' ? 'Histórico' : 'Lista'}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Alertas */}
         {alertas.length > 0 && (
-          <div className="mb-4 p-3 rounded-xl bg-red-900/20 border border-red-500/30 animate-fade-in">
+          <div className="mb-4 p-3 rounded-xl bg-red-900/20 border border-red-500/30">
             <div className="flex items-center gap-2 mb-2">
               <AlertTriangle size={16} className="text-red-400" />
-              <span className="text-sm font-bold text-red-400">⚠ {alertas.length} produto(s) com estoque baixo!</span>
+              <span className="text-sm font-bold text-red-400">{alertas.length} produto(s) com estoque baixo!</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {alertas.map(p => (
@@ -1296,7 +1032,6 @@ function ControleEstoque() {
 
         {abaEstoque === 'lista' ? (
           <>
-            {/* Filtros */}
             <div className="flex gap-2 mb-4">
               {[
                 { id: 'todos', label: 'Todos' },
@@ -1311,8 +1046,6 @@ function ControleEstoque() {
                 </button>
               ))}
             </div>
-
-            {/* Tabela de Estoque */}
             <div className="rounded-xl overflow-hidden border border-slate-700/50">
               <table className="w-full">
                 <thead>
@@ -1342,8 +1075,7 @@ function ControleEstoque() {
                         <td className="p-3 text-center">
                           <span className="text-white font-bold text-sm">{produto.estoque}</span>
                           <div className="w-full bg-slate-700 rounded-full h-1.5 mt-1">
-                            <div className={`h-1.5 rounded-full transition-all ${pct > 60 ? 'bg-green-500' : pct > 30 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                              style={{ width: `${pct}%` }} />
+                            <div className={`h-1.5 rounded-full transition-all ${pct > 60 ? 'bg-green-500' : pct > 30 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${pct}%` }} />
                           </div>
                         </td>
                         <td className="p-3 text-center text-sm text-slate-400">{produto.estoqueMinimo}</td>
@@ -1364,14 +1096,12 @@ function ControleEstoque() {
             </div>
           </>
         ) : (
-          /* Histórico de Movimentações */
           <div className="space-y-2">
             {state.movimentacoes.sort((a, b) => b.data.localeCompare(a.data)).map(mov => {
               const produto = state.produtos.find(p => p.id === mov.produtoId);
               return (
                 <div key={mov.id} className="flex items-center gap-3 p-3 rounded-xl bg-slate-800 border border-slate-700/50">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center
-                    ${mov.tipo === 'entrada' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${mov.tipo === 'entrada' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                     {mov.tipo === 'entrada' ? <ArrowDownCircle size={16} /> : <ArrowUpCircle size={16} />}
                   </div>
                   <div className="flex-1">
@@ -1394,10 +1124,9 @@ function ControleEstoque() {
         )}
       </div>
 
-      {/* Modal de Entrada de Estoque */}
       {modalEntrada && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop" onClick={() => setModalEntrada(null)}>
-          <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl animate-fade-in" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setModalEntrada(null)}>
+          <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-white mb-1">Entrada de Estoque</h3>
             <p className="text-sm text-slate-400 mb-4">{modalEntrada.emoji} {modalEntrada.nome} (Atual: {modalEntrada.estoque})</p>
             <div className="space-y-3">
@@ -1431,10 +1160,7 @@ function ControleEstoque() {
   );
 }
 
-// ============================================================
 // MÓDULO 4: CONTROLE DE CAIXA
-// ============================================================
-
 function ControleDeCaixa() {
   const { state, dispatch, addToast, confirmar } = useContext(AppContext);
   const [abaCaixa, setAbaCaixa] = useState('resumo');
@@ -1471,7 +1197,7 @@ function ControleDeCaixa() {
   };
 
   const fecharTurno = async () => {
-    const ok = await confirmar('Fechar Turno?', 'Deseja realmente fechar o turno atual? Esta ação não pode ser desfeita.');
+    const ok = await confirmar('Fechar Turno?', 'Deseja realmente fechar o turno atual?');
     if (!ok) return;
     dispatch({ type: 'FECHAR_TURNO' });
     addToast('Turno fechado com sucesso!', 'sucesso');
@@ -1480,8 +1206,6 @@ function ControleDeCaixa() {
   const totalSangrias = turno ? turno.sangrias.reduce((a, s) => a + s.valor, 0) : 0;
   const totalSuprimentos = turno ? turno.suprimentos.reduce((a, s) => a + s.valor, 0) : 0;
   const saldoFinal = turno ? turno.valorInicial + (turno.totalDinheiro || 0) - totalSangrias + totalSuprimentos : 0;
-
-  // Vendas do turno para relatório por categoria
   const vendasDoTurno = turno ? state.vendas.filter(v => turno.vendas.includes(v.id)) : [];
   const vendasPorCategoria = {};
   vendasDoTurno.forEach(v => {
@@ -1498,8 +1222,7 @@ function ControleDeCaixa() {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-extrabold text-white flex items-center gap-2">
-            <Calculator size={24} className="text-orange-400" />
-            Controle de Caixa
+            <Calculator size={24} className="text-orange-400" /> Controle de Caixa
           </h2>
           {turno && (
             <div className="flex gap-2">
@@ -1507,7 +1230,7 @@ function ControleDeCaixa() {
                 <button key={aba} onClick={() => setAbaCaixa(aba)}
                   className={`px-4 py-2 rounded-xl text-sm font-semibold transition cursor-pointer capitalize
                     ${abaCaixa === aba ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400'}`}>
-                  {aba === 'sangria' ? 'Movimentações' : aba}
+                  {aba === 'sangria' ? 'Movimentações' : aba === 'historico' ? 'Histórico' : 'Resumo'}
                 </button>
               ))}
             </div>
@@ -1515,7 +1238,6 @@ function ControleDeCaixa() {
         </div>
 
         {!turno ? (
-          /* Abertura de Turno */
           <div className="max-w-md mx-auto">
             <div className="bg-slate-800 rounded-2xl border border-slate-700/50 p-6 text-center">
               <div className="w-16 h-16 rounded-2xl bg-orange-500/20 flex items-center justify-center mx-auto mb-4">
@@ -1542,8 +1264,6 @@ function ControleDeCaixa() {
                 <Clock size={18} /> Abrir Turno
               </button>
             </div>
-
-            {/* Histórico de turnos */}
             {state.turnos.length > 0 && (
               <div className="mt-8">
                 <h3 className="text-lg font-bold text-white mb-4">Turnos Anteriores</h3>
@@ -1569,11 +1289,9 @@ function ControleDeCaixa() {
             )}
           </div>
         ) : (
-          /* Turno Aberto */
           <>
             {abaCaixa === 'resumo' && (
-              <div className="space-y-4 animate-fade-in">
-                {/* Cards de Resumo */}
+              <div className="space-y-4">
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                   {[
                     { label: 'Total Vendas', valor: turno.totalVendas || 0, cor: 'text-orange-400', icon: TrendingUp },
@@ -1593,8 +1311,6 @@ function ControleDeCaixa() {
                     );
                   })}
                 </div>
-
-                {/* Detalhes do turno */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-4">
                     <h4 className="font-bold text-white mb-3">Resumo do Turno</h4>
@@ -1610,7 +1326,6 @@ function ControleDeCaixa() {
                       <div className="flex justify-between"><span className="text-slate-400">Ticket Médio</span><span className="text-white font-bold">{formatarMoeda(ticketMedio)}</span></div>
                     </div>
                   </div>
-
                   <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-4">
                     <h4 className="font-bold text-white mb-3">Vendas por Categoria</h4>
                     {Object.keys(vendasPorCategoria).length > 0 ? (
@@ -1619,36 +1334,30 @@ function ControleDeCaixa() {
                           <div key={cat} className="flex items-center gap-2">
                             <span className="text-sm text-slate-400 w-24 truncate">{cat}</span>
                             <div className="flex-1 bg-slate-700 rounded-full h-2">
-                              <div className="h-2 rounded-full bg-orange-500 transition-all" style={{ width: `${(val / (turno.totalVendas || 1)) * 100}%` }} />
+                              <div className="h-2 rounded-full bg-orange-500" style={{ width: `${(val / (turno.totalVendas || 1)) * 100}%` }} />
                             </div>
                             <span className="text-sm text-white font-bold w-24 text-right">{formatarMoeda(val)}</span>
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <p className="text-sm text-slate-500">Nenhuma venda registrada neste turno</p>
-                    )}
+                    ) : <p className="text-sm text-slate-500">Nenhuma venda neste turno</p>}
                   </div>
                 </div>
-
-                {/* Botão Fechar Turno */}
                 <button onClick={fecharTurno}
                   className="w-full py-3 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 font-bold text-sm cursor-pointer transition flex items-center justify-center gap-2">
                   <LogOut size={18} /> Fechar Turno
                 </button>
               </div>
             )}
-
             {abaCaixa === 'sangria' && (
-              <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
-                {/* Sangria */}
+              <div className="space-y-6 max-w-2xl mx-auto">
                 <div className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
                   <h4 className="font-bold text-white mb-3 flex items-center gap-2"><ArrowUpCircle size={18} className="text-red-400" /> Sangria (Retirada)</h4>
                   <div className="flex gap-2">
                     <input type="text" value={formSangria.valor} onChange={e => setFormSangria({ ...formSangria, valor: e.target.value })}
                       placeholder="Valor" className="w-28 px-3 py-2 rounded-xl bg-slate-700 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 text-sm" />
                     <input type="text" value={formSangria.motivo} onChange={e => setFormSangria({ ...formSangria, motivo: e.target.value })}
-                      placeholder="Motivo da sangria" className="flex-1 px-3 py-2 rounded-xl bg-slate-700 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 text-sm" />
+                      placeholder="Motivo" className="flex-1 px-3 py-2 rounded-xl bg-slate-700 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 text-sm" />
                     <button onClick={registrarSangria} className="px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-600 font-semibold text-sm cursor-pointer transition">Registrar</button>
                   </div>
                   {turno.sangrias.length > 0 && (
@@ -1662,15 +1371,13 @@ function ControleDeCaixa() {
                     </div>
                   )}
                 </div>
-
-                {/* Suprimento */}
                 <div className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
                   <h4 className="font-bold text-white mb-3 flex items-center gap-2"><ArrowDownCircle size={18} className="text-green-400" /> Suprimento (Reforço)</h4>
                   <div className="flex gap-2">
                     <input type="text" value={formSuprimento.valor} onChange={e => setFormSuprimento({ ...formSuprimento, valor: e.target.value })}
                       placeholder="Valor" className="w-28 px-3 py-2 rounded-xl bg-slate-700 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 text-sm" />
                     <input type="text" value={formSuprimento.motivo} onChange={e => setFormSuprimento({ ...formSuprimento, motivo: e.target.value })}
-                      placeholder="Motivo do suprimento" className="flex-1 px-3 py-2 rounded-xl bg-slate-700 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 text-sm" />
+                      placeholder="Motivo" className="flex-1 px-3 py-2 rounded-xl bg-slate-700 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 text-sm" />
                     <button onClick={registrarSuprimento} className="px-4 py-2 rounded-xl bg-green-500 text-white hover:bg-green-600 font-semibold text-sm cursor-pointer transition">Registrar</button>
                   </div>
                   {turno.suprimentos.length > 0 && (
@@ -1686,15 +1393,14 @@ function ControleDeCaixa() {
                 </div>
               </div>
             )}
-
             {abaCaixa === 'historico' && (
-              <div className="space-y-2 animate-fade-in">
+              <div className="space-y-2">
                 <h3 className="text-lg font-bold text-white mb-3">Turnos Anteriores</h3>
                 {state.turnos.slice().reverse().map(t => (
                   <div key={t.id} className="p-4 rounded-xl bg-slate-800 border border-slate-700/50">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-bold text-white">{t.operador}</span>
-                      <span className="text-xs text-slate-500">{formatarDataHora(t.dataAbertura)} — {formatarDataHora(t.dataFechamento)}</span>
+                      <span className="text-xs text-slate-500">{formatarDataHora(t.dataAbertura)}</span>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-xs">
                       <div className="text-slate-400">Total: <span className="text-orange-400 font-bold">{formatarMoeda(t.totalVendas || 0)}</span></div>
@@ -1713,10 +1419,7 @@ function ControleDeCaixa() {
   );
 }
 
-// ============================================================
-// MÓDULO 5: RELATÓRIOS E HISTÓRICO
-// ============================================================
-
+// MÓDULO 5: RELATÓRIOS
 function Relatorios() {
   const { state } = useContext(AppContext);
   const [filtroData, setFiltroData] = useState('mes');
@@ -1724,19 +1427,16 @@ function Relatorios() {
   const [dataFim, setDataFim] = useState('');
   const [abaRelatorio, setAbaRelatorio] = useState('vendas');
 
-  // Calcular datas de filtro
   const hojeStr = getHojeStr();
   const getDatasFiltro = () => {
     const hoje = new Date();
     if (filtroData === 'hoje') return { inicio: hojeStr, fim: hojeStr };
     if (filtroData === 'semana') {
-      const inicio = new Date(hoje);
-      inicio.setDate(inicio.getDate() - 7);
+      const inicio = new Date(hoje); inicio.setDate(inicio.getDate() - 7);
       return { inicio: inicio.toISOString().slice(0, 10), fim: hojeStr };
     }
     if (filtroData === 'mes') {
-      const inicio = new Date(hoje);
-      inicio.setDate(inicio.getDate() - 30);
+      const inicio = new Date(hoje); inicio.setDate(inicio.getDate() - 30);
       return { inicio: inicio.toISOString().slice(0, 10), fim: hojeStr };
     }
     return { inicio: dataInicio || '2020-01-01', fim: dataFim || hojeStr };
@@ -1752,43 +1452,35 @@ function Relatorios() {
   const totalPix = vendasFiltradas.filter(v => v.formaPagamento === 'pix').reduce((a, v) => a + v.total, 0);
   const ticketMedio = vendasFiltradas.length > 0 ? totalPeriodo / vendasFiltradas.length : 0;
 
-  // Produto mais vendido
   const contaProdutos = {};
-  vendasFiltradas.forEach(v => v.itens.forEach(i => {
-    contaProdutos[i.nome] = (contaProdutos[i.nome] || 0) + i.qtd;
-  }));
+  vendasFiltradas.forEach(v => v.itens.forEach(i => { contaProdutos[i.nome] = (contaProdutos[i.nome] || 0) + i.qtd; }));
   const maisVendido = Object.entries(contaProdutos).sort((a, b) => b[1] - a[1])[0];
 
-  // Faturamento por dia (para gráfico)
   const faturamentoPorDia = {};
-  vendasFiltradas.forEach(v => {
-    faturamentoPorDia[v.data] = (faturamentoPorDia[v.data] || 0) + v.total;
-  });
+  vendasFiltradas.forEach(v => { faturamentoPorDia[v.data] = (faturamentoPorDia[v.data] || 0) + v.total; });
   const diasOrdenados = Object.entries(faturamentoPorDia).sort((a, b) => a[0].localeCompare(b[0]));
   const maxFaturamento = Math.max(...diasOrdenados.map(d => d[1]), 1);
 
   const formaLabel = { dinheiro: 'Dinheiro', credito: 'Crédito', debito: 'Débito', pix: 'PIX' };
   const formaCor = { dinheiro: 'bg-green-500', credito: 'bg-blue-500', debito: 'bg-purple-500', pix: 'bg-cyan-500' };
-  const formaCorTexto = { dinheiro: 'text-green-400', credito: 'text-blue-400', debito: 'text-purple-400', pix: 'text-cyan-400' };
 
   return (
     <div className="p-4 lg:p-6 h-[calc(100vh-60px)] overflow-y-auto">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <h2 className="text-2xl font-extrabold text-white flex items-center gap-2">
-            <BarChart3 size={24} className="text-orange-400" />
-            Relatórios
+            <BarChart3 size={24} className="text-orange-400" /> Relatórios
           </h2>
           <div className="flex gap-2 items-center flex-wrap">
             {['hoje', 'semana', 'mes', 'custom'].map(f => (
               <button key={f} onClick={() => setFiltroData(f)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer capitalize
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer
                   ${filtroData === f ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}>
                 {f === 'custom' ? 'Período' : f === 'mes' ? 'Mês' : f === 'hoje' ? 'Hoje' : 'Semana'}
               </button>
             ))}
             {filtroData === 'custom' && (
-              <div className="flex gap-2 items-center animate-fade-in">
+              <div className="flex gap-2 items-center">
                 <input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)}
                   className="px-2 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white text-xs" />
                 <span className="text-slate-500 text-xs">até</span>
@@ -1803,8 +1495,7 @@ function Relatorios() {
           </div>
         </div>
 
-        {/* Abas */}
-        <div className="flex gap-2 mb-4 no-print">
+        <div className="flex gap-2 mb-4">
           {['vendas', 'grafico', 'resumo'].map(aba => (
             <button key={aba} onClick={() => setAbaRelatorio(aba)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition cursor-pointer capitalize
@@ -1814,7 +1505,6 @@ function Relatorios() {
           ))}
         </div>
 
-        {/* Cards Resumo */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
           {[
             { label: 'Faturamento', valor: formatarMoeda(totalPeriodo), cor: 'text-orange-400' },
@@ -1831,8 +1521,7 @@ function Relatorios() {
         </div>
 
         {abaRelatorio === 'vendas' && (
-          /* Histórico de Vendas */
-          <div className="space-y-2 animate-fade-in">
+          <div className="space-y-2">
             {vendasFiltradas.map(venda => (
               <div key={venda.id} className="p-4 rounded-xl bg-slate-800 border border-slate-700/50 hover:border-slate-600 transition">
                 <div className="flex items-center justify-between mb-2">
@@ -1850,9 +1539,7 @@ function Relatorios() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {venda.itens.map((item, i) => (
-                    <span key={i} className="text-xs bg-slate-700/50 px-2 py-1 rounded-lg text-slate-300">
-                      {item.qtd}x {item.nome}
-                    </span>
+                    <span key={i} className="text-xs bg-slate-700/50 px-2 py-1 rounded-lg text-slate-300">{item.qtd}x {item.nome}</span>
                   ))}
                 </div>
                 <div className="mt-1 text-xs text-slate-500">Operador: {venda.operador}</div>
@@ -1868,8 +1555,7 @@ function Relatorios() {
         )}
 
         {abaRelatorio === 'grafico' && (
-          /* Gráfico de Faturamento por Dia */
-          <div className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5 animate-fade-in">
+          <div className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
             <h4 className="font-bold text-white mb-4">Faturamento por Dia</h4>
             {diasOrdenados.length > 0 ? (
               <div className="flex items-end gap-2 h-64 overflow-x-auto pb-2">
@@ -1877,24 +1563,20 @@ function Relatorios() {
                   <div key={dia} className="flex flex-col items-center gap-1 min-w-[48px] flex-1">
                     <span className="text-[10px] text-orange-400 font-bold">{formatarMoeda(valor)}</span>
                     <div className="w-full flex items-end justify-center" style={{ height: '200px' }}>
-                      <div className="chart-bar w-full max-w-[40px] rounded-t-lg bg-gradient-to-t from-orange-600 to-orange-400 hover:from-orange-500 hover:to-orange-300 cursor-pointer"
+                      <div className="w-full max-w-[40px] rounded-t-lg bg-orange-500 hover:bg-orange-400 cursor-pointer"
                         style={{ height: `${(valor / maxFaturamento) * 100}%`, minHeight: '4px' }}
-                        title={`${formatarData(dia)}: ${formatarMoeda(valor)}`}
-                      />
+                        title={`${formatarData(dia)}: ${formatarMoeda(valor)}`} />
                     </div>
-                    <span className="text-[10px] text-slate-500 transform">{formatarData(dia).slice(0, 5)}</span>
+                    <span className="text-[10px] text-slate-500">{formatarData(dia).slice(0, 5)}</span>
                   </div>
                 ))}
               </div>
-            ) : (
-              <p className="text-sm text-slate-500 text-center py-8">Sem dados para o período</p>
-            )}
+            ) : <p className="text-sm text-slate-500 text-center py-8">Sem dados para o período</p>}
           </div>
         )}
 
         {abaRelatorio === 'resumo' && (
-          /* Resumo Detalhado */
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-fade-in">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
               <h4 className="font-bold text-white mb-4">Por Forma de Pagamento</h4>
               <div className="space-y-3">
@@ -1910,14 +1592,12 @@ function Relatorios() {
                       <span className={`font-bold ${fp.corTexto}`}>{formatarMoeda(fp.valor)}</span>
                     </div>
                     <div className="w-full bg-slate-700 rounded-full h-2">
-                      <div className={`h-2 rounded-full ${fp.cor} transition-all`}
-                        style={{ width: `${totalPeriodo > 0 ? (fp.valor / totalPeriodo) * 100 : 0}%` }} />
+                      <div className={`h-2 rounded-full ${fp.cor}`} style={{ width: `${totalPeriodo > 0 ? (fp.valor / totalPeriodo) * 100 : 0}%` }} />
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-
             <div className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
               <h4 className="font-bold text-white mb-4">Produtos Mais Vendidos</h4>
               <div className="space-y-2">
@@ -1931,9 +1611,7 @@ function Relatorios() {
                     <span className="text-sm font-bold text-orange-400">{qtd}x</span>
                   </div>
                 ))}
-                {Object.keys(contaProdutos).length === 0 && (
-                  <p className="text-sm text-slate-500">Sem dados para o período</p>
-                )}
+                {Object.keys(contaProdutos).length === 0 && <p className="text-sm text-slate-500">Sem dados para o período</p>}
               </div>
             </div>
           </div>
@@ -1943,10 +1621,7 @@ function Relatorios() {
   );
 }
 
-// ============================================================
 // APP PRINCIPAL
-// ============================================================
-
 export default function App() {
   const [state, dispatch] = useReducer(reducer, null, carregarEstado);
   const [pagina, setPagina] = useState('pdv');
@@ -1955,13 +1630,10 @@ export default function App() {
   const [confirmacao, setConfirmacao] = useState(null);
   const resolverConfirmacao = useRef(null);
 
-  // Persistir estado no localStorage
   useEffect(() => {
-    const { carrinho, ...estadoSalvar } = state;
     localStorage.setItem('pdv_estado', JSON.stringify(state));
   }, [state]);
 
-  // Funções de toast
   const addToast = useCallback((mensagem, tipo = 'info') => {
     const id = gerarId();
     setToasts(prev => [...prev, { id, mensagem, tipo }]);
@@ -1972,7 +1644,6 @@ export default function App() {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  // Função de confirmação
   const confirmar = useCallback((titulo, mensagem) => {
     return new Promise(resolve => {
       resolverConfirmacao.current = resolve;
@@ -1980,31 +1651,18 @@ export default function App() {
     });
   }, []);
 
-  const handleConfirmar = () => {
-    resolverConfirmacao.current?.(true);
-    setConfirmacao(null);
-  };
+  const handleConfirmar = () => { resolverConfirmacao.current?.(true); setConfirmacao(null); };
+  const handleCancelar = () => { resolverConfirmacao.current?.(false); setConfirmacao(null); };
 
-  const handleCancelar = () => {
-    resolverConfirmacao.current?.(false);
-    setConfirmacao(null);
-  };
-
-  // Total vendas hoje
   const totalVendasHoje = state.vendas.filter(v => v.data === getHojeStr()).reduce((a, v) => a + v.total, 0);
-
   const contextValue = { state, dispatch, addToast, confirmar };
 
   return (
     <AppContext.Provider value={contextValue}>
-      <div className="h-screen flex bg-navy-900 overflow-hidden">
-        <Sidebar pagina={pagina} paginaAtual={pagina} setPagina={setPagina}
-          sidebarAberta={sidebarAberta} setSidebarAberta={setSidebarAberta}
-          turnoAtual={state.turnoAtual} />
-
+      <div className="h-screen flex bg-slate-950 overflow-hidden">
+        <Sidebar paginaAtual={pagina} setPagina={setPagina} sidebarAberta={sidebarAberta} setSidebarAberta={setSidebarAberta} />
         <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarAberta ? 'ml-56' : 'ml-16'}`}>
           <Topbar turnoAtual={state.turnoAtual} totalVendasHoje={totalVendasHoje} />
-
           <main className="flex-1 overflow-hidden">
             {pagina === 'pdv' && <FrenteDeCaixa />}
             {pagina === 'cardapio' && <CardapioEditavel />}
@@ -2013,15 +1671,8 @@ export default function App() {
             {pagina === 'relatorios' && <Relatorios />}
           </main>
         </div>
-
         <ToastContainer toasts={toasts} removeToast={removeToast} />
-        <ModalConfirmacao
-          aberto={!!confirmacao}
-          titulo={confirmacao?.titulo || ''}
-          mensagem={confirmacao?.mensagem || ''}
-          onConfirmar={handleConfirmar}
-          onCancelar={handleCancelar}
-        />
+        <ModalConfirmacao aberto={!!confirmacao} titulo={confirmacao?.titulo || ''} mensagem={confirmacao?.mensagem || ''} onConfirmar={handleConfirmar} onCancelar={handleCancelar} />
       </div>
     </AppContext.Provider>
   );
