@@ -105,6 +105,12 @@ function carregarEstado() {
 
 function reducer(state, action) {
   switch (action.type) {
+    case 'EDITAR_PRECO_ITEM': {
+      const { produtoId, preco } = action.payload;
+      const novoCarrinho = state.carrinho.map(i => i.produtoId === produtoId ? { ...i, preco } : i);
+      const novasMesas = state.mesas.map(m => m.numero === state.mesaSelecionada ? { ...m, carrinho: novoCarrinho } : m);
+      return { ...state, carrinho: novoCarrinho, mesas: novasMesas };
+    }
     case 'ADICIONAR_AO_CARRINHO': {
       const produto = action.payload;
       const existente = state.carrinho.find(i => i.produtoId === produto.id);
@@ -229,6 +235,8 @@ function reducer(state, action) {
       return { ...state, produtos: [...state.produtos, { ...action.payload, id: gerarId() }] };
     case 'EDITAR_PRODUTO':
       return { ...state, produtos: state.produtos.map(p => p.id === action.payload.id ? { ...p, ...action.payload } : p) };
+    case 'DELETAR_PRODUTO':
+      return { ...state, produtos: state.produtos.filter(p => p.id !== action.payload) };
     case 'TOGGLE_PRODUTO':
       return { ...state, produtos: state.produtos.map(p => p.id === action.payload ? { ...p, ativo: !p.ativo } : p) };
     case 'REORDENAR_PRODUTO': {
@@ -508,14 +516,17 @@ function FrenteDeCaixa() {
                       disabled={produto.estoque <= 0}
                       className={`bg-slate-800/80 border border-slate-700/50 rounded-xl p-3 text-left cursor-pointer relative hover:border-orange-500/50 transition
                         ${produto.estoque <= 0 ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                      <div className="text-3xl mb-2">{produto.emoji}</div>
-                      <p className="text-sm font-semibold text-white truncate">{produto.nome}</p>
-                      <p className="text-orange-400 font-bold text-sm mt-1">{formatarMoeda(produto.preco)}</p>
                       {estoqueStatus !== 'ok' && (
-                        <span className={`absolute top-2 right-2 w-2.5 h-2.5 rounded-full
+                        <span className={`absolute top-2 right-2 w-2.5 h-2.5 rounded-full z-10
                           ${estoqueStatus === 'esgotado' ? 'bg-red-500' : estoqueStatus === 'critico' ? 'bg-red-400 animate-pulse' : 'bg-yellow-400'}`} />
                       )}
-                      <p className="text-[10px] text-slate-500 mt-1">Estoque: {produto.estoque}</p>
+                      {produto.imagem
+                        ? <img src={produto.imagem} alt={produto.nome} className="w-full h-20 object-cover rounded-lg mb-2" />
+                        : <div className="text-3xl mb-2">{produto.emoji || '🍽️'}</div>
+                      }
+                      <p className="text-sm font-semibold text-white leading-tight">{produto.nome}</p>
+                      <p className="text-orange-400 font-bold text-sm mt-1">{formatarMoeda(produto.preco)}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Estoque: {produto.estoque}</p>
                     </button>
                   );
                 })}
@@ -653,28 +664,46 @@ function FrenteDeCaixa() {
             </div>
           ) : (
             state.carrinho.map(item => (
-              <div key={item.produtoId} className="bg-slate-800 rounded-xl p-3 flex items-center gap-3">
-                <span className="text-xl">{item.emoji}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{item.nome}</p>
-                  <p className="text-xs text-slate-400">{formatarMoeda(item.preco)} un.</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => dispatch({ type: 'ALTERAR_QTD_CARRINHO', payload: { produtoId: item.produtoId, delta: -1 } })}
-                    className="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-white cursor-pointer transition">
-                    <Minus size={14} />
-                  </button>
-                  <span className="w-8 text-center text-sm font-bold text-white">{item.qtd}</span>
-                  <button onClick={() => dispatch({ type: 'ALTERAR_QTD_CARRINHO', payload: { produtoId: item.produtoId, delta: 1 } })}
-                    className="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-white cursor-pointer transition">
-                    <Plus size={14} />
+              <div key={item.produtoId} className="bg-slate-800 rounded-xl p-2.5 flex flex-col gap-2">
+                {/* Linha 1: imagem/emoji + nome + lixeira */}
+                <div className="flex items-center gap-2">
+                  {item.imagem
+                    ? <img src={item.imagem} alt={item.nome} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+                    : <span className="text-lg flex-shrink-0">{item.emoji}</span>
+                  }
+                  <p className="text-sm font-semibold text-white flex-1 leading-tight">{item.nome}</p>
+                  <button onClick={() => dispatch({ type: 'REMOVER_DO_CARRINHO', payload: item.produtoId })}
+                    className="text-red-400 hover:text-red-300 cursor-pointer transition flex-shrink-0">
+                    <Trash2 size={14} />
                   </button>
                 </div>
-                <p className="text-sm font-bold text-orange-400 w-20 text-right">{formatarMoeda(item.preco * item.qtd)}</p>
-                <button onClick={() => dispatch({ type: 'REMOVER_DO_CARRINHO', payload: item.produtoId })}
-                  className="text-red-400 hover:text-red-300 cursor-pointer transition">
-                  <Trash2 size={16} />
-                </button>
+                {/* Linha 2: preço editável + qtd + total */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-slate-500 whitespace-nowrap">R$</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={item.preco}
+                    onChange={e => {
+                      const novoPreco = parseFloat(e.target.value) || 0;
+                      dispatch({ type: 'EDITAR_PRECO_ITEM', payload: { produtoId: item.produtoId, preco: novoPreco } });
+                    }}
+                    className="w-16 px-1.5 py-1 rounded-lg bg-slate-700 border border-slate-600 text-orange-400 text-xs font-bold text-center focus:outline-none focus:border-orange-500"
+                  />
+                  <div className="flex items-center gap-1 ml-auto">
+                    <button onClick={() => dispatch({ type: 'ALTERAR_QTD_CARRINHO', payload: { produtoId: item.produtoId, delta: -1 } })}
+                      className="w-6 h-6 rounded-md bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-white cursor-pointer transition">
+                      <Minus size={12} />
+                    </button>
+                    <span className="w-7 text-center text-sm font-bold text-white">{item.qtd}</span>
+                    <button onClick={() => dispatch({ type: 'ALTERAR_QTD_CARRINHO', payload: { produtoId: item.produtoId, delta: 1 } })}
+                      className="w-6 h-6 rounded-md bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-white cursor-pointer transition">
+                      <Plus size={12} />
+                    </button>
+                  </div>
+                  <p className="text-sm font-extrabold text-orange-400 w-16 text-right">{formatarMoeda(item.preco * item.qtd)}</p>
+                </div>
               </div>
             ))
           )}
@@ -769,21 +798,21 @@ function FrenteDeCaixa() {
 
 // MÓDULO 2: CARDÁPIO EDITÁVEL
 function CardapioEditavel() {
-  const { state, dispatch, addToast } = useContext(AppContext);
+  const { state, dispatch, addToast, confirmar } = useContext(AppContext);
   const [modalProduto, setModalProduto] = useState(null);
-  const [form, setForm] = useState({ nome: '', emoji: '🍽️', preco: '', categoriaId: '', ativo: true });
+  const [form, setForm] = useState({ nome: '', emoji: '🍽️', imagem: '', preco: '', categoriaId: '', ativo: true });
   const [novaCategoria, setNovaCategoria] = useState('');
   const [editandoCat, setEditandoCat] = useState(null);
   const [nomeCatEdit, setNomeCatEdit] = useState('');
   const [abaCardapio, setAbaCardapio] = useState('produtos');
 
   const abrirNovoProduto = () => {
-    setForm({ nome: '', emoji: '🍽️', preco: '', categoriaId: state.categorias[0]?.id || '', ativo: true });
+    setForm({ nome: '', emoji: '🍽️', imagem: '', preco: '', categoriaId: state.categorias[0]?.id || '', ativo: true });
     setModalProduto('novo');
   };
 
   const abrirEditarProduto = (produto) => {
-    setForm({ nome: produto.nome, emoji: produto.emoji, preco: String(produto.preco), categoriaId: produto.categoriaId, ativo: produto.ativo });
+    setForm({ nome: produto.nome, emoji: produto.emoji || '🍽️', imagem: produto.imagem || '', preco: String(produto.preco), categoriaId: produto.categoriaId, ativo: produto.ativo });
     setModalProduto(produto);
   };
 
@@ -852,7 +881,10 @@ function CardapioEditavel() {
                       {prods.map((produto, idx) => (
                         <div key={produto.id}
                           className={`flex items-center gap-3 p-3 rounded-xl bg-slate-800/80 border border-slate-700/50 hover:border-slate-600 transition ${!produto.ativo ? 'opacity-50' : ''}`}>
-                          <span className="text-2xl">{produto.emoji}</span>
+                          {produto.imagem
+                            ? <img src={produto.imagem} alt={produto.nome} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                            : <span className="text-2xl flex-shrink-0">{produto.emoji || '🍽️'}</span>
+                          }
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-white">{produto.nome}</p>
                             <p className="text-xs text-slate-400">{formatarMoeda(produto.preco)} · Estoque: {produto.estoque}</p>
@@ -873,6 +905,16 @@ function CardapioEditavel() {
                             <button onClick={() => abrirEditarProduto(produto)}
                               className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 flex items-center justify-center cursor-pointer transition">
                               <Edit size={14} />
+                            </button>
+                            <button onClick={async () => {
+                              const ok = await confirmar('Apagar produto?', `Deseja apagar "${produto.nome}" permanentemente? Esta ação não pode ser desfeita.`);
+                              if (ok) {
+                                dispatch({ type: 'DELETAR_PRODUTO', payload: produto.id });
+                                addToast(`"${produto.nome}" apagado!`, 'sucesso');
+                              }
+                            }}
+                              className="w-8 h-8 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 flex items-center justify-center cursor-pointer transition">
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         </div>
@@ -927,9 +969,39 @@ function CardapioEditavel() {
             <h3 className="text-lg font-bold text-white mb-4">{modalProduto === 'novo' ? 'Novo Produto' : 'Editar Produto'}</h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-slate-400 mb-1 block">Emoji</label>
-                <input type="text" value={form.emoji} onChange={e => setForm({ ...form, emoji: e.target.value })}
-                  className="w-16 px-3 py-2 rounded-xl bg-slate-700 border border-slate-600 text-white text-2xl text-center focus:outline-none focus:border-orange-500" />
+                <label className="text-xs text-slate-400 mb-1 block">Imagem do Produto</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-xl bg-slate-700 border border-slate-600 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {form.imagem
+                      ? <img src={form.imagem} alt="preview" className="w-full h-full object-cover" />
+                      : <span className="text-3xl">{form.emoji || '🍽️'}</span>
+                    }
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <label className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 text-xs font-semibold cursor-pointer transition">
+                      <Plus size={14} /> Carregar imagem
+                      <input type="file" accept="image/*" className="hidden"
+                        onChange={e => {
+                          const file = e.target.files[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = ev => setForm({ ...form, imagem: ev.target.result, emoji: '' });
+                          reader.readAsDataURL(file);
+                        }} />
+                    </label>
+                    {form.imagem && (
+                      <button onClick={() => setForm({ ...form, imagem: '', emoji: '🍽️' })}
+                        className="w-full px-3 py-1.5 rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs font-semibold cursor-pointer transition">
+                        Remover imagem
+                      </button>
+                    )}
+                    {!form.imagem && (
+                      <input type="text" value={form.emoji} onChange={e => setForm({ ...form, emoji: e.target.value })}
+                        placeholder="ou cole um emoji"
+                        className="w-full px-3 py-1.5 rounded-xl bg-slate-700 border border-slate-600 text-white text-sm text-center focus:outline-none focus:border-orange-500 placeholder-slate-500" />
+                    )}
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="text-xs text-slate-400 mb-1 block">Nome</label>
